@@ -25,11 +25,11 @@ const userSchema = new Schema(
             index: true,
         },
         avatar: {
-            type: String, //Clodenary url
+            type: String,
             required: true,
         },
         coverImage: {
-            type: String, //Clodenary url
+            type: String,
         },
         watchHistory: [
             {

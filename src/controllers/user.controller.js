@@ -1,13 +1,12 @@
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
+import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { Subscription } from "../models/subscription.model.js";
 import mongoose from "mongoose";
 
-//method to generate -> access and refresh token
+// Helper function to generate access and refresh tokens
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
         const user = await User.findById(userId);
@@ -21,16 +20,13 @@ const generateAccessAndRefreshTokens = async (userId) => {
         return { accessToken, refreshToken };
     } catch (error) {
         throw new ApiError(
-            500,
-            "Something went wrong while generating refresh and access token"
+            500, "Something went wrong while generating refresh and access token"
         );
     }
 };
 
-//register the user
+//register user
 const registerUser = asyncHandler(async (req, res) => {
-    const { fullName, email, username, password } = req.body;
-    
     //<---- logic-register user ---->
     // get user details from frontend
     // validation - not empty
@@ -42,9 +38,9 @@ const registerUser = asyncHandler(async (req, res) => {
     // check for user creation
     // return respnse
 
-    //Validation
-    if (
-        [fullName, email, username, password].some((field) => field?.trim() === "")
+    const { fullName, email, username, password } = req.body;
+    if ([fullName, email, username, password].some((field) =>
+        field?.trim() === "")
     ) {
         throw new ApiError(400, "All fields are required");
     }
@@ -104,7 +100,7 @@ const registerUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 
-// User login method
+// Login user
 const loginUser = asyncHandler(async (req, res) => {
     // Take data from request body
     // username or email
@@ -152,7 +148,7 @@ const loginUser = asyncHandler(async (req, res) => {
     //send cokies
     const options = {
         httpOnly: true,
-        secure: true,
+        secure: false, // Set to true in production (requires HTTPS)
     };
 
     return res
@@ -167,12 +163,12 @@ const loginUser = asyncHandler(async (req, res) => {
                     accessToken,
                     refreshToken,
                 },
-                "user logged In successfully"
+                "Login successful"
             )
         );
 });
 
-// User log-out method
+// Logout user
 const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
@@ -188,6 +184,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: true,
+        sameSite: "none",
     };
 
     return res
@@ -246,8 +243,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     }
 });
 
-//<------- Update user ------->
-
+//<---- Update user profile related controllers ---->
 // Update Password
 const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword } = req.body;
@@ -359,7 +355,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, user, "Cover image is updated successfully"));
 });
 
-//find how many subscribers and how many channel subscribed
+// Get user channel profile details
 const getUserChannelProfile = asyncHandler(async (req, res) => {
     const { username } = req.params;
 
@@ -376,7 +372,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
-                from: "Subscription",
+                from: "subscriptions",
                 localField: "_id",
                 foreignField: "channel",
                 as: "subscribers",
@@ -384,7 +380,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             $lookup: {
-                from: "Subscriptions",
+                from: "subscriptions",
                 localField: "_id",
                 foreignField: "subscriber",
                 as: "subscribedTo",
@@ -393,14 +389,22 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 subscribersCount: {
-                    $size: "$subscribers",
+                    $size: {
+                        $ifNull: ["$subscribers", []]
+                    }
                 },
+
                 channelsSubscribedToCount: {
-                    $size: "subscribedTo",
+                    $size: {
+                        $ifNull: ["$subscribedTo", []]
+                    }
                 },
                 isSubscribed: {
                     $cond: {
-                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        if: { $in: [
+                            new mongoose.Types.ObjectId(req.user?._id),
+                            "$subscribers.subscriber"
+                        ] },
                         then: true,
                         else: false,
                     },
@@ -432,7 +436,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         );
 });
 
-//get watch history
+// Get user watch history
 const getWatchHistory = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
         {
@@ -450,7 +454,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                     {
                         $lookup: {
                             from: "users",
-                            locationbar: "owner",
+                            localField: "owner",
                             foreignField: "_id",
                             as: "owner",
                             pipeline: [
@@ -477,14 +481,14 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     ]);
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200,
-            user[0].watchHistory,
-            "Watch history fetched successfully"
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "Watch history fetched successfully"
+            )
         )
-    )
 });
 
 export {
