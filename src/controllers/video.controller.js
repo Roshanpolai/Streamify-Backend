@@ -3,7 +3,7 @@ import ApiError from "../utils/ApiError.js";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
-import { uploadOnCloudinary,deleteOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteOnCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import { Like } from "../models/like.model.js";
@@ -19,14 +19,25 @@ const getAllVideos = asyncHandler(async (req, res) => {
     // Field mappings specify which fields within your documents should be indexed for text search.
     // this helps in seraching only in title, desc providing faster search results
     // here the name of search index is 'search-videos'
+    // if (query) {
+    //     pipeline.push({
+    //         $search: {
+    //             index: "search-videos",
+    //             text: {
+    //                 query: query,
+    //                 path: ["title", "description"] //search only on title, desc
+    //             }
+    //         }
+    //     });
+    // }
+
     if (query) {
         pipeline.push({
-            $search: {
-                index: "search-videos",
-                text: {
-                    query: query,
-                    path: ["title", "description"] //search only on title, desc
-                }
+            $match: {
+                $or: [
+                    { title: { $regex: query, $options: "i" } },
+                    { description: { $regex: query, $options: "i" } }
+                ]
             }
         });
     }
@@ -97,7 +108,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 // get video, upload to cloudinary, create video
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body;
-    
+
     if ([title, description].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "All fields are required");
     }
@@ -197,7 +208,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                             // subscribersCount: {
                             //     $size: "$subscribers"
                             // },
-                            
+
                             subscribersCount: {
                                 $size: {
                                     $ifNull: ["$subscribers", []]
@@ -239,7 +250,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                 },
                 isLiked: {
                     $cond: {
-                        if: {$in: [req.user?._id, "$likes.likedBy"]},
+                        if: { $in: [req.user?._id, "$likes.likedBy"] },
                         then: true,
                         else: false
                     }
@@ -391,11 +402,11 @@ const deleteVideo = asyncHandler(async (req, res) => {
         video: videoId
     })
 
-     // delete video comments
+    // delete video comments
     await Comment.deleteMany({
         video: videoId,
     })
-    
+
     return res
         .status(200)
         .json(new ApiResponse(200, {}, "Video deleted successfully"));

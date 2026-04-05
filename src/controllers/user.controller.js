@@ -1,3 +1,4 @@
+import fs from "fs"; 
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
@@ -49,7 +50,16 @@ const registerUser = asyncHandler(async (req, res) => {
     const existedUser = await User.findOne({
         $or: [{ username }, { email }],
     });
+
     if (existedUser) {
+        if (req.files?.avatar?.[0]?.path) {
+            fs.unlinkSync(req.files.avatar[0].path);
+        }
+
+        if (req.files?.coverImage?.[0]?.path) {
+            fs.unlinkSync(req.files.coverImage[0].path);
+        }
+
         throw new ApiError(409, "user with email or username already exists");
     }
 
@@ -401,10 +411,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
                 },
                 isSubscribed: {
                     $cond: {
-                        if: { $in: [
-                            new mongoose.Types.ObjectId(req.user?._id),
-                            "$subscribers.subscriber"
-                        ] },
+                        if: {
+                            $in: [
+                                new mongoose.Types.ObjectId(req.user?._id),
+                                "$subscribers.subscriber"
+                            ]
+                        },
                         then: true,
                         else: false,
                     },
