@@ -16,11 +16,10 @@ It is designed with modular architecture and covers authentication, media upload
 
 ---
 
-## 🔗 Important Links
+## Important Links
 
 | Content | Link |
 |---------|------|
-| API Documentation | [Click Here](https://documenter.getpostman.com/view/28570926/2s9YsNdVwW) |
 | Database Models | [Click Here](https://app.eraser.io/workspace/YtPqZ1VogxGy1jzIDkzj) |
 
 ---
